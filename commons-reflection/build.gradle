@@ -1,0 +1,9 @@
+plugins {
+    id 'java'
+}
+
+dependencies {
+    compileOnly project(":commons-container")
+}
+
+apply from: "../component.gradle"

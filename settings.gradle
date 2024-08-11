@@ -3,3 +3,6 @@ include 'commons-math'
 include 'commons-crypto'
 include 'commons-event'
 include 'commons-container'
+include 'commons-general'
+
+include 'commons-reflection'

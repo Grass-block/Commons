@@ -16,7 +16,7 @@ public class SimpleEventBus extends EventBus<EventHandler, SimpleEventBus.Simple
     }
 
     @Override
-    public void execute(List<SimpleHandlerInstance> listeners, Object event, Object addition) {
+    public void execute(List<SimpleHandlerInstance> listeners, Object event, Object[] addition) {
         listeners.sort(Comparator.comparingInt(SimpleHandlerInstance::getPriority));
         for (SimpleHandlerInstance instance : listeners) {
             instance.call(event, addition);
@@ -49,7 +49,7 @@ public class SimpleEventBus extends EventBus<EventHandler, SimpleEventBus.Simple
         }
 
         @Override
-        public boolean shouldCall(Object event, Object... additions) {
+        public boolean shouldCall(Object event, Object[] additions) {
             List<String> _additions = List.of(this.additions);
             for (Object o : additions) {
                 if (!(o instanceof String s)) {

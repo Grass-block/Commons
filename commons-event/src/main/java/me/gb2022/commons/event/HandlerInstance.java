@@ -13,7 +13,7 @@ public abstract class HandlerInstance {
         this.method.setAccessible(true);
     }
 
-    public void call(Object event, Object... addition) {
+    public void call(Object event, Object[] addition) {
         if (event instanceof Cancellable e2) {
             if (!this.ignoreCancel() && (e2.isCancelled())) {
                 return;
@@ -36,7 +36,7 @@ public abstract class HandlerInstance {
         return false;
     }
 
-    public abstract boolean shouldCall(Object event, Object... additions);
+    public abstract boolean shouldCall(Object event, Object[] additions);
 
     public Object getHandler() {
         return handler;

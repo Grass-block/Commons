@@ -15,7 +15,7 @@ public abstract class EventBus<H extends Annotation, I extends HandlerInstance> 
 
     public abstract Class<H> getHandlerAnnotationClass();
 
-    public abstract void execute(List<I> listeners, Object event, Object addition);
+    public abstract void execute(List<I> listeners, Object event, Object[] addition);
 
     private Map<String, List<I>> getHandlerInstanceCache(Object key) {
         if (!this.handlers.containsKey(key)) {
