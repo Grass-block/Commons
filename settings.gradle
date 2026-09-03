@@ -6,3 +6,5 @@ include 'commons-container'
 include 'commons-general'
 
 include 'commons-reflection'
+include 'commons-compatibility'
+

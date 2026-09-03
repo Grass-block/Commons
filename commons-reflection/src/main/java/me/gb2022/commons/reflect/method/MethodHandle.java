@@ -16,7 +16,7 @@ public interface MethodHandle {
             try {
                 p.getLeft().getMethod();
                 return p.getRight();
-            } catch (Exception ignored) {
+            } catch (Throwable ignored) {
             }
         }
         if (ctx.dummy != null) {

@@ -1,31 +1,25 @@
 package me.gb2022.commons.memory;
 
-import me.gb2022.commons.memory.backend.BufferAllocatorBackend;
-
 import java.nio.*;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 public abstract class BufferAllocator {
-    private final AtomicInteger alloc;
-    private final AtomicInteger instances;
-    private final AtomicInteger leaked;
-    private final AtomicInteger leakedInstances;
+    private final AtomicLong alloc;
+    private final AtomicLong instances;
+    private final AtomicLong leaked;
+    private final AtomicLong leakedInstances;
     private final int maxAllocateInstance;
     private final int maxAllocateCapacity;
 
-
     private final Map<Buffer, ByteBuffer> lookups = new HashMap<>();
 
-
-     //private final BufferAllocatorBackend backend;
-
     protected BufferAllocator(int maxAllocateInstance, int maxAllocateCapacity) {
-        this.alloc = new AtomicInteger(0);
-        this.instances = new AtomicInteger(0);
-        this.leaked = new AtomicInteger(0);
-        this.leakedInstances = new AtomicInteger(0);
+        this.alloc = new AtomicLong(0);
+        this.instances = new AtomicLong(0);
+        this.leaked = new AtomicLong(0);
+        this.leakedInstances = new AtomicLong(0);
         this.maxAllocateInstance = maxAllocateInstance;
         this.maxAllocateCapacity = maxAllocateCapacity;
     }
@@ -34,50 +28,53 @@ public abstract class BufferAllocator {
         this(4096, 16777216);
     }
 
-    public BufferAllocatorBackend getBackend() {
-        return null;
+    private <T extends Buffer> T addRecord(T buffer) {
+        return buffer;
     }
 
-    public final ByteBuffer allocByteBuffer(int size) {
+    private void removeRecord(Buffer buffer) {
+    }
+
+
+    //----[alloc]----
+    private ByteBuffer allocate0(int size) {
         this.checkSize();
         this.alloc.addAndGet(size);
         this.instances.incrementAndGet();
         return this.allocateBuffer(size);
     }
 
+    public final ByteBuffer allocByteBuffer(int size) {
+        return this.addRecord(allocate0(size));
+    }
+
     public final ShortBuffer allocShortBuffer(int size) {
-        this.checkSize();
-        this.alloc.addAndGet(size * 2);
-        this.instances.incrementAndGet();
-        return this.allocateBuffer(size * 2).asShortBuffer();
+        return this.addRecord(allocate0(size * 2).asShortBuffer());
     }
 
     public final IntBuffer allocIntBuffer(int size) {
-        this.checkSize();
-        this.alloc.addAndGet(size * 4);
-        this.instances.incrementAndGet();
-        return this.allocateBuffer(size * 4).asIntBuffer();
+        return this.addRecord(allocate0(size * 4).asIntBuffer());
     }
 
     public final FloatBuffer allocFloatBuffer(int size) {
-        this.checkSize();
-        this.alloc.addAndGet(size * 4);
-        this.instances.incrementAndGet();
-        return this.allocateBuffer(size * 4).asFloatBuffer();
+        return this.addRecord(allocate0(size * 4).asFloatBuffer());
     }
 
     public final LongBuffer allocLongBuffer(int size) {
-        this.checkSize();
-        this.alloc.addAndGet(size * 8);
-        this.instances.incrementAndGet();
-        return this.allocateBuffer(size * 8).asLongBuffer();
+        return this.addRecord(allocate0(size * 8).asLongBuffer());
     }
 
     public final DoubleBuffer allocDoubleBuffer(int size) {
-        this.checkSize();
-        this.alloc.addAndGet(size * 8);
-        this.instances.incrementAndGet();
-        return this.allocateBuffer(size * 8).asDoubleBuffer();
+        return this.addRecord(allocate0(size * 8).asDoubleBuffer());
+    }
+
+
+    //----[free]----
+    private void free0(Buffer buffer, int dataBytes) {
+        this.alloc.addAndGet((long) -buffer.capacity() * dataBytes);
+        this.instances.decrementAndGet();
+        this.freeBuffer(buffer);
+        this.removeRecord(buffer);
     }
 
     public final void free(Buffer buffer) {
@@ -108,39 +105,38 @@ public abstract class BufferAllocator {
     }
 
     public final void free(ByteBuffer buffer) {
-        this.alloc.addAndGet(-buffer.capacity());
-        this.instances.decrementAndGet();
-        this.freeBuffer(buffer);
+        free0(buffer, 1);
     }
 
     public final void free(ShortBuffer buffer) {
-        this.alloc.addAndGet(-buffer.capacity() * 2);
-        this.instances.decrementAndGet();
-        this.freeBuffer(buffer);
+        free0(buffer, 2);
     }
 
     public final void free(IntBuffer buffer) {
-        this.alloc.addAndGet(-buffer.capacity() * 4);
-        this.instances.decrementAndGet();
-        this.freeBuffer(buffer);
+        free0(buffer, 4);
     }
 
     public final void free(FloatBuffer buffer) {
-        this.alloc.addAndGet(-buffer.capacity() * 4);
-        this.instances.decrementAndGet();
-        this.freeBuffer(buffer);
+        free0(buffer, 4);
     }
 
     public final void free(LongBuffer buffer) {
-        this.alloc.addAndGet(-buffer.capacity() * 8);
-        this.instances.decrementAndGet();
-        this.freeBuffer(buffer);
+        free0(buffer, 8);
     }
 
     public final void free(DoubleBuffer buffer) {
-        this.alloc.addAndGet(-buffer.capacity() * 8);
+        free0(buffer, 8);
+    }
+
+
+    //----[unexpected]----
+    private void freeUnexpected0(Buffer buffer, int dataBytes) {
+        this.leaked.addAndGet((long) buffer.capacity() * dataBytes);
+        this.leakedInstances.incrementAndGet();
+        this.alloc.addAndGet((long) -buffer.capacity() * dataBytes);
         this.instances.decrementAndGet();
         this.freeBuffer(buffer);
+        this.removeRecord(buffer);
     }
 
     public final void freeUnexpected(Buffer buffer) {
@@ -171,71 +167,52 @@ public abstract class BufferAllocator {
     }
 
     public final void freeUnexpected(ByteBuffer buffer) {
-        this.leaked.addAndGet(-buffer.capacity());
-        this.leakedInstances.decrementAndGet();
-        this.alloc.addAndGet(-buffer.capacity());
-        this.instances.decrementAndGet();
-        this.freeBuffer(buffer);
+        freeUnexpected0(buffer, 1);
     }
 
     public final void freeUnexpected(ShortBuffer buffer) {
-        this.leaked.addAndGet(-buffer.capacity() * 2);
-        this.leakedInstances.decrementAndGet();
-        this.alloc.addAndGet(-buffer.capacity() * 2);
-        this.instances.decrementAndGet();
-        this.freeBuffer(buffer);
+        freeUnexpected0(buffer, 2);
     }
 
     public final void freeUnexpected(IntBuffer buffer) {
-        this.leaked.addAndGet(-buffer.capacity() * 4);
-        this.leakedInstances.decrementAndGet();
-        this.alloc.addAndGet(-buffer.capacity() * 4);
-        this.instances.decrementAndGet();
-        this.freeBuffer(buffer);
+        freeUnexpected0(buffer, 4);
     }
 
     public final void freeUnexpected(FloatBuffer buffer) {
-        this.leaked.addAndGet(-buffer.capacity() * 4);
-        this.leakedInstances.decrementAndGet();
-        this.alloc.addAndGet(-buffer.capacity() * 4);
-        this.instances.decrementAndGet();
-        this.freeBuffer(buffer);
+        freeUnexpected0(buffer, 4);
     }
 
     public final void freeUnexpected(LongBuffer buffer) {
-        this.leaked.addAndGet(-buffer.capacity() * 8);
-        this.leakedInstances.decrementAndGet();
-        this.alloc.addAndGet(-buffer.capacity() * 8);
-        this.instances.decrementAndGet();
-        this.freeBuffer(buffer);
+        freeUnexpected0(buffer, 8);
     }
 
     public final void freeUnexpected(DoubleBuffer buffer) {
-        this.leaked.addAndGet(-buffer.capacity() * 8);
-        this.leakedInstances.decrementAndGet();
-        this.alloc.addAndGet(-buffer.capacity() * 8);
-        this.instances.decrementAndGet();
-        this.freeBuffer(buffer);
+        freeUnexpected0(buffer, 8);
     }
 
-    public abstract ByteBuffer allocateBuffer(int var1);
+
+    public abstract ByteBuffer allocateBuffer(int size);
 
     public abstract void freeBuffer(Buffer buffer);
 
+    public long hashcode(Buffer buffer) {
+        return buffer.hashCode();
+    }
+
     public final long getAllocSize() {
-        return this.alloc.intValue();
+        return this.alloc.longValue();
     }
 
-    public final int getAllocInstances() {
-        return this.instances.intValue();
+    public final long getAllocInstances() {
+        return this.instances.longValue();
     }
 
-    public final int getLeakInstances() {
-        return this.leakedInstances.intValue();
+    public final long getLeakInstances() {
+        return this.leakedInstances.longValue();
     }
 
-    public final int getLeaked() {
-        return this.leaked.intValue();
+    public final long getLeaked() {
+        return this.leaked.longValue();
     }
 
     public int getMaxAllocateCapacity() {
@@ -247,11 +224,6 @@ public abstract class BufferAllocator {
     }
 
 
-    public abstract ByteBuffer create(int bytes);
-
-    public abstract void delete(ByteBuffer buffer);
-
-
     public final void checkSize() {
         if (this.instances.get() > this.maxAllocateInstance) {
             throw new Error("off heap overflowed(%d buffers)".formatted(this.instances.get()));
@@ -261,6 +233,21 @@ public abstract class BufferAllocator {
     }
 
     public final String toString() {
-        return "%dMB[%d](%dmb-%d leaked)".formatted(this.getAllocSize(), this.getAllocInstances(), this.getLeaked(), this.getLeakInstances());
+        return "%dMB[%d](%dmb-%d leaked)".formatted(
+                this.getAllocSize(),
+                this.getAllocInstances(),
+                this.getLeaked(),
+                this.getLeakInstances()
+        );
+    }
+
+    public void clear() {
+        this.alloc.set(0);
+        this.instances.set(0);
+    }
+
+    @Override
+    protected void finalize() {
+        this.clear();
     }
 }

@@ -4,6 +4,8 @@ plugins {
 
 dependencies {
     compileOnly project(":commons-container")
+    compileOnly 'it.unimi.dsi:fastutil-core:8.5.9'
 }
 
 apply from: "../component.gradle"
+

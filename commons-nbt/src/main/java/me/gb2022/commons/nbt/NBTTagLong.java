@@ -4,7 +4,7 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 
-public class NBTTagLong extends NBTBase
+public final class NBTTagLong extends NBTBase
 {
     public long longValue;
     
@@ -28,8 +28,8 @@ public class NBTTagLong extends NBTBase
     }
     
     @Override
-    public byte getType() {
-        return 4;
+    public NBTType getType() {
+        return NBTType.TAG_LONG;
     }
     
     @Override

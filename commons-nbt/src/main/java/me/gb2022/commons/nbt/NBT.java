@@ -49,7 +49,7 @@ public interface NBT {
         if (byte1 == 0) {
             return new NBTTagEnd();
         }
-        final NBTBase tagOfType = createTag(byte1);
+        final NBTBase tagOfType = createTag(NBTType.from(byte1));
         if (tagOfType != null) {
             tagOfType.key = dataInput.readUTF();
             tagOfType.readTagContents(dataInput);
@@ -58,16 +58,16 @@ public interface NBT {
     }
 
     static void write0(final NBTBase hm, final DataOutput dataOutput) throws IOException {
-        dataOutput.writeByte(hm.getType());
-        if (hm.getType() == 0) {
+        dataOutput.writeByte(hm.getType().getValue());
+        if (hm.getType() == NBTType.TAG_END) {
             return;
         }
         dataOutput.writeUTF(hm.getKey());
         hm.writeTagContents(dataOutput);
     }
 
-    static NBTBase createTag(final byte id) {
-        return switch (id) {
+    static NBTBase createTag(final NBTType t) {
+        return switch (t.getValue()) {
             case 0 -> new NBTTagEnd();
             case 1 -> new NBTTagByte();
             case 2 -> new NBTTagShort();
@@ -77,7 +77,7 @@ public interface NBT {
             case 6 -> new NBTTagDouble();
             case 7 -> new NBTTagByteArray();
             case 8 -> new NBTTagString();
-            case 9 -> new NBTTagList();
+            case 9 -> new NBTTagList<>();
             case 10 -> new NBTTagCompound();
             case 11 -> new NBTTagIntArray();
             default -> null;
@@ -101,4 +101,47 @@ public interface NBT {
             default -> "UNKNOWN";
         };
     }
+
+    static NBTBase resolve(Object obj) {
+        if (obj instanceof Byte v) {
+            return new NBTTagByte(v);
+        }
+        if (obj instanceof Short v) {
+            return new NBTTagShort(v);
+        }
+        if (obj instanceof Integer v) {
+            return new NBTTagInt(v);
+        }
+        if (obj instanceof Long v) {
+            return new NBTTagLong(v);
+        }
+        if (obj instanceof Float v) {
+            return new NBTTagFloat(v);
+        }
+        if (obj instanceof Double v) {
+            return new NBTTagDouble(v);
+        }
+        if (obj instanceof String v) {
+            return new NBTTagString(v);
+        }
+        if (obj instanceof byte[] v) {
+            return new NBTTagByteArray(v);
+        }
+        if (obj instanceof int[] v) {
+            return new NBTTagIntArray(v);
+        }
+        if (obj instanceof NBTTagCompound v) {
+            return v;
+        }
+        if (obj instanceof NBTTagList<?> v) {
+            return v;
+        }
+        if (obj instanceof Enum<?> v) {
+            return new NBTTagInt(v.ordinal());
+        }
+
+        throw new IllegalArgumentException("No NBT Of Type:" + obj.getClass().getName());
+    }
+
+
 }

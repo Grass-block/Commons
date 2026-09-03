@@ -37,7 +37,7 @@ public class SimpleEventBus extends EventBus<EventHandler, SimpleEventBus.Simple
             SubscribedEvent event = method.getAnnotation(SubscribedEvent.class);
 
             if (event == null) {
-                this.additions = null;
+                this.additions = new String[0];
             } else {
                 this.additions = event.value();
             }
@@ -50,6 +50,10 @@ public class SimpleEventBus extends EventBus<EventHandler, SimpleEventBus.Simple
 
         @Override
         public boolean shouldCall(Object event, Object[] additions) {
+            if (this.additions.length == 0) {
+                return true;
+            }
+
             List<String> _additions = List.of(this.additions);
             for (Object o : additions) {
                 if (!(o instanceof String s)) {

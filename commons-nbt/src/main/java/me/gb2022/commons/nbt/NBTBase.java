@@ -16,7 +16,7 @@ public abstract class NBTBase {
 
     public abstract void readTagContents(final DataInput dataInput) throws IOException;
 
-    public abstract byte getType();
+    public abstract NBTType getType();
 
     public String getKey() {
         if (this.key == null) {

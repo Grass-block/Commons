@@ -4,5 +4,5 @@ import java.lang.reflect.Method;
 
 @FunctionalInterface
 public interface Assertion {
-    Method getMethod() throws Exception;
+    Method getMethod() throws Throwable;
 }

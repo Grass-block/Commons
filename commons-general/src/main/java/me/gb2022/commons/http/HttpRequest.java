@@ -1,12 +1,16 @@
 package me.gb2022.commons.http;
 
+import me.gb2022.commons.http.HttpMethod;
+
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 
 @SuppressWarnings("ClassCanBeRecord")
 public class HttpRequest {
@@ -44,7 +48,10 @@ public class HttpRequest {
         HttpURLConnection con = (HttpURLConnection) new URL(url).openConnection();
 
         con.setRequestMethod(this.method.toString());
-        con.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36");
+        con.setRequestProperty(
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+        );
 
         for (String k : this.headers.keySet()) {
             con.setRequestProperty(k, this.headers.get(k));
@@ -54,20 +61,35 @@ public class HttpRequest {
     }
 
     public String request() {
+        return requestWithPayload((Consumer<OutputStream>) null);
+    }
+
+    public String requestWithPayload(Consumer<OutputStream> stream) {
         try {
             String str;
             HttpURLConnection con = createConnection();
 
+            if (stream != null) {
+                con.setDoOutput(true);
+                var s = con.getOutputStream();
+                stream.accept(s);
+                s.flush();
+            }
+
             var code = con.getResponseCode();
             if (code != 200) {
-                InputStream error = con.getErrorStream();
+                var error = con.getErrorStream();
+                if(error == null){
+                    return "";
+                }
+
                 str = new String(error.readAllBytes(), StandardCharsets.UTF_8);
                 error.close();
                 con.disconnect();
                 return str;
             }
 
-            InputStream in = con.getInputStream();
+            var in = con.getInputStream();
             str = new String(in.readAllBytes(), StandardCharsets.UTF_8);
             in.close();
             con.disconnect();
@@ -75,6 +97,16 @@ public class HttpRequest {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public String requestWithPayload(String payload) {
+        return requestWithPayload((s) -> {
+            try {
+                s.write(payload.getBytes(StandardCharsets.UTF_8));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     public static final class Builder {
@@ -107,7 +139,10 @@ public class HttpRequest {
         }
 
         public Builder browserBehavior(boolean extra) {
-            header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7");
+            header(
+                    "Accept",
+                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+            );
 
             if (extra) {
                 header("Accept-Encoding", "gzip, deflate, br, zst").header("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
@@ -119,7 +154,11 @@ public class HttpRequest {
         }
 
         public HttpRequest build() {
-            return new HttpRequest(this.headers, this.url + "?" + this.args, this.method);
+            return new HttpRequest(
+                    this.headers,
+                    this.url + "?" + (this.args.isEmpty() ? this.args : this.args.deleteCharAt(this.args.length() - 1)),
+                    this.method
+            );
         }
     }
 }
